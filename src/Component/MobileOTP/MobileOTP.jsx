@@ -1,157 +1,89 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { auth, db } from '../../firebase/firebaseconfig';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebaseConfig';
+import { doc, setDoc } from 'firebase/firestore';
 
 function MobileOTP() {
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [countryCode, setCountryCode] = useState('+91');
-  const [otp, setOtp] = useState('');
-  const [verificationId, setVerificationId] = useState('');
-  const [userName, setUserName] = useState('John Doe');
-  const [userImage, setUserImage] = useState('https://via.placeholder.com/150');
-  const [error, setError] = useState('');
-
   const navigate = useNavigate();
 
-  const handleMobileChange = (e) => setMobileNumber(e.target.value);
-  const handleCountryCodeChange = (e) => setCountryCode(e.target.value);
-  const handleOtpChange = (e) => setOtp(e.target.value);
-
-  const setupRecaptcha = () => {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        'recaptcha-container',
-        {
-          size: 'invisible',
-          callback: () => onSignInSubmit(), // Call sign-in method once reCAPTCHA is solved
-          'expired-callback': () => {
-            setError('Recaptcha expired. Please try again.');
-          },
-        },
-        auth
-      );
-      window.recaptchaVerifier.render(); // This renders the reCAPTCHA widget
-    }
-  };
-
-  const onSignInSubmit = (e) => {
-    e.preventDefault();
-    setupRecaptcha(); // Ensure Recaptcha is set up before sending OTP
-    const phoneNumber = `${countryCode}${mobileNumber}`;
-    const appVerifier = window.recaptchaVerifier;
-
-    signInWithPhoneNumber(auth, phoneNumber, appVerifier)
-      .then((confirmationResult) => {
-        window.confirmationResult = confirmationResult; // Store confirmationResult globally
-        setVerificationId(confirmationResult.verificationId);
-        toast.success('OTP has been sent to your mobile number.');
-      })
-      .catch((error) => {
-        setError(`Error sending OTP: ${error.message}`);
-        toast.error(`Error sending OTP: ${error.message}`);
-      });
-  };
-
-  const verifyOtp = async (e) => {
-    e.preventDefault();
-    setError('');
-    const code = otp;
-
+  const googleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
     try {
-      const result = await window.confirmationResult.confirm(code);
+      const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      toast.success('Phone number verified successfully.');
 
-      // Save user data to Firestore
-      await addDoc(collection(db, 'users'), {
-        phoneNumber: `${countryCode}${mobileNumber}`,
-        userName,
-        userImage,
+      // Store user data in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        name: user.displayName,
+        email: user.email,
+        profilePicture: user.photoURL,
       });
-      toast.success('User data saved to Firestore.');
 
-      // Clear the form
-      setMobileNumber('');
-      setOtp('');
-      setVerificationId('');
-
-      // Navigate to the ChatBox page
-      navigate('/chatBox');
+      console.log('User:', user);
+      navigate('/chatbox');
     } catch (error) {
-      setError(`Error verifying OTP: ${error.message}`);
-      toast.error(`Error verifying OTP: ${error.message}`);
+      console.error('Error signing in with Google', error);
+      alert('Failed to sign in. Please try again.');
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <ToastContainer />
-      <div id="recaptcha-container"></div>
-      <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm">
-        <div className="flex flex-col items-center">
-          <img src={userImage} alt="User" className="w-24 h-24 rounded-full mb-4" />
-          <h2 className="text-xl font-semibold mb-6">{userName}</h2>
-        </div>
-        <form onSubmit={verificationId ? verifyOtp : onSignInSubmit}>
-          <div className="mb-4">
-            <label htmlFor="countryCode" className="block text-sm font-medium text-gray-700">
-              Country Code
-            </label>
-            <select
-              id="countryCode"
-              value={countryCode}
-              onChange={handleCountryCodeChange}
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            >
-              <option value="+91">+91 (India)</option>
-              <option value="+1">+1 (USA)</option>
-              <option value="+44">+44 (UK)</option>
-              {/* Add more country codes as needed */}
-            </select>
+    <div className="min-h-screen bg-gray-100 flex flex-col justify-center sm:py-12">
+      <div className="p-10 xs:p-0 mx-auto md:w-full md:max-w-md">
+        <h1 className="font-bold text-center text-2xl mb-5">Your Logo</h1>
+        <div className="bg-white shadow w-full rounded-lg divide-y divide-gray-200">
+          <div className="px-5 py-7">
+            <label className="font-semibold text-sm text-gray-600 pb-1 block">E-mail</label>
+            <input type="text" className="border rounded-lg px-3 py-2 mt-1 mb-5 text-sm w-full" />
+            <label className="font-semibold text-sm text-gray-600 pb-1 block">Password</label>
+            <input type="text" className="border rounded-lg px-3 py-2 mt-1 mb-5 text-sm w-full" />
+            <button type="button" className="transition duration-200 bg-blue-500 hover:bg-blue-600 focus:bg-blue-700 focus:shadow-sm focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 text-white w-full py-2.5 rounded-lg text-sm shadow-sm hover:shadow-md font-semibold text-center inline-block">
+              <span className="inline-block mr-2">Login</span>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4 inline-block">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
           </div>
-          <div className="mb-4">
-            <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700">
-              Mobile Number
-            </label>
-            <input
-              type="tel"
-              id="mobileNumber"
-              value={mobileNumber}
-              onChange={handleMobileChange}
-              placeholder="Enter mobile number"
-              className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              required
-              disabled={verificationId}
-            />
-          </div>
-          {verificationId && (
-            <div className="mb-4">
-              <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
-                OTP
-              </label>
-              <input
-                type="text"
-                id="otp"
-                value={otp}
-                onChange={handleOtpChange}
-                placeholder="Enter OTP"
-                className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                required
-              />
+          <div className="p-5">
+            <div className="grid grid-cols-3 gap-1">
+              <button type="button" onClick={googleSignIn} className="transition duration-200 border border-gray-200 text-gray-500 w-full py-2.5 rounded-lg text-sm shadow-sm hover:shadow-md font-normal text-center inline-block">Google</button>
             </div>
-          )}
-          <button
-            type="submit"
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            {verificationId ? 'Verify OTP' : 'Send OTP'}
-          </button>
-          {error && <p className="mt-4 text-red-600">{error}</p>}
-        </form>
+          </div>
+          <div className="py-5">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="text-center sm:text-left whitespace-nowrap">
+                <button className="transition duration-200 mx-5 px-5 py-4 cursor-pointer font-normal text-sm rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-200 focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 ring-inset">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4 inline-block align-text-top">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                  </svg>
+                  <span className="inline-block ml-1">Forgot Password</span>
+                </button>
+              </div>
+              <div className="text-center sm:text-right whitespace-nowrap">
+                <button className="transition duration-200 mx-5 px-5 py-4 cursor-pointer font-normal text-sm rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-200 focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 ring-inset">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4 inline-block align-text-bottom">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span className="inline-block ml-1">Help</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="py-5">
+          <div className="grid grid-cols-2 gap-1">
+            <div className="text-center sm:text-left whitespace-nowrap">
+              <button className="transition duration-200 mx-5 px-5 py-4 cursor-pointer font-normal text-sm rounded-lg text-gray-500 hover:bg-gray-200 focus:outline-none focus:bg-gray-300 focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 ring-inset">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4 inline-block align-text-top">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span className="inline-block ml-1">Back to your-app.com</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
