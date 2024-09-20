@@ -250,7 +250,7 @@ onAuthStateChanged(auth, async (user) => {
               ))
             ) : (
               <div className="text-gray-500 text-center mt-10">
-                No messages to display.
+                No messages display.
               </div>
             )}
             <div ref={messagesEndRef} /> {/* Empty div to scroll into view */}
